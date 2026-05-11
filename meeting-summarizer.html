@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meeting Notes Summarizer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #222222;
+    --border: #2e2e2e;
+    --border2: #3a3a3a;
+    --text: #f0ede8;
+    --text2: #8a8780;
+    --text3: #555350;
+    --accent: #c8f060;
+    --accent-dim: #9bb845;
+    --danger: #ff6b6b;
+    --success: #6bffb8;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem 1.5rem 5rem;
+  }
+
+  header {
+    width: 100%;
+    max-width: 640px;
+    margin-bottom: 3rem;
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+  }
+
+  header h1 {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+
+  header span {
+    font-size: 13px;
+    color: var(--text3);
+    font-family: var(--mono);
+  }
+
+  .main { width: 100%; max-width: 640px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    transition: border-color 0.2s;
+  }
+
+  .card.active { border-color: var(--border2); }
+  .card.disabled { opacity: 0.4; pointer-events: none; }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1.25rem;
+  }
+
+  .step-badge {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--border2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    flex-shrink: 0;
+  }
+
+  .step-badge.done {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0f0f0f;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    font-family: var(--mono);
+    letter-spacing: 0.03em;
+  }
+
+  label {
+    display: block;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+    margin-bottom: 1rem;
+  }
+
+  input[type="text"]:focus, input[type="password"]:focus {
+    border-color: var(--accent);
+  }
+
+  input::placeholder { color: var(--text3); }
+
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+
+  .btn:hover { background: var(--surface2); border-color: var(--text3); }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-accent {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0f0f0f;
+    font-weight: 500;
+  }
+
+  .btn-accent:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  .status {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 10px;
+    min-height: 16px;
+    line-height: 1.5;
+  }
+
+  .status.error { color: var(--danger); }
+  .status.success { color: var(--success); }
+
+  .file-list { margin-bottom: 1rem; }
+
+  .file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    transition: opacity 0.15s;
+  }
+
+  .file-row:last-child { border-bottom: none; }
+
+  .file-icon {
+    width: 28px;
+    height: 28px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  .file-info { flex: 1; overflow: hidden; }
+  .file-name { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+  .file-date { font-size: 11px; font-family: var(--mono); color: var(--text3); }
+
+  .summary-area {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1rem 1.25rem;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre-wrap;
+    min-height: 120px;
+    margin-bottom: 1rem;
+    font-family: var(--sans);
+    font-weight: 300;
+  }
+
+  .selected-doc {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 1rem;
+  }
+
+  .selected-doc-name { font-size: 13px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .btn-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .hint {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 0.75rem;
+    line-height: 1.6;
+  }
+
+  .hint a { color: var(--text2); text-decoration: underline; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.25rem 0;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .loading { animation: pulse 1.4s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>meeting-summarizer</h1>
+  <span>// google drive + claude</span>
+</header>
+
+<main class="main">
+
+  <!-- Step 1: Config -->
+  <div class="card active" id="card-config">
+    <div class="card-header">
+      <div class="step-badge" id="badge-1">1</div>
+      <span class="card-title">connect</span>
+    </div>
+
+    <label>OAuth Client ID</label>
+    <input type="text" id="client-id" placeholder="xxxxxxxxxxxx-xxxxxxxx.apps.googleusercontent.com" />
+
+    <div class="row">
+      <div>
+        <label>Source folder ID</label>
+        <input type="text" id="source-folder" placeholder="folder ID from Drive URL" />
+      </div>
+      <div>
+        <label>Destination folder ID</label>
+        <input type="text" id="dest-folder" placeholder="folder ID from Drive URL" />
+      </div>
+    </div>
+
+    <button class="btn btn-accent" onclick="startAuth()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      Sign in with Google
+    </button>
+
+    <div class="status" id="status-auth"></div>
+
+    <hr class="divider" />
+    <p class="hint">Folder ID is the last segment of the Drive URL:<br>drive.google.com/drive/folders/<strong style="color:var(--text2)">THIS_PART</strong></p>
+  </div>
+
+  <!-- Step 2: Pick file -->
+  <div class="card disabled" id="card-files">
+    <div class="card-header">
+      <div class="step-badge" id="badge-2">2</div>
+      <span class="card-title">select document</span>
+    </div>
+    <div class="file-list" id="file-list"></div>
+    <button class="btn btn-sm" onclick="loadFiles()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Refresh
+    </button>
+    <div class="status" id="status-files"></div>
+  </div>
+
+  <!-- Step 3: Summarize -->
+  <div class="card disabled" id="card-summary">
+    <div class="card-header">
+      <div class="step-badge" id="badge-3">3</div>
+      <span class="card-title">summarize & export</span>
+    </div>
+    <div class="selected-doc" id="selected-doc">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span class="selected-doc-name" id="selected-doc-name">no document selected</span>
+    </div>
+    <div class="summary-area" id="summary-output">Summary will appear here.</div>
+    <div class="btn-row">
+      <button class="btn btn-accent" id="btn-summarize" onclick="summarizeDoc()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Summarize
+      </button>
+      <button class="btn" id="btn-save" onclick="saveToDrive()" style="display:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Save to Drive
+      </button>
+      <button class="btn btn-sm" onclick="goBack()" style="margin-left:auto;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+    </div>
+    <div class="status" id="status-summary"></div>
+  </div>
+
+</main>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+let accessToken = null;
+let selectedFile = null;
+let summaryText = '';
+
+const $ = id => document.getElementById(id);
+
+function setStatus(id, msg, type = '') {
+  const el = $(id);
+  el.textContent = msg;
+  el.className = 'status' + (type ? ' ' + type : '');
+}
+
+function enable(id) {
+  $(id).classList.remove('disabled');
+  $(id).classList.add('active');
+}
+
+function markDone(badgeId) {
+  $(badgeId).classList.add('done');
+  $(badgeId).innerHTML = '✓';
+}
+
+function startAuth() {
+  const clientId = $('client-id').value.trim();
+  const src = $('source-folder').value.trim();
+  const dest = $('dest-folder').value.trim();
+  if (!clientId) { setStatus('status-auth', 'Please enter your Client ID.', 'error'); return; }
+  if (!src) { setStatus('status-auth', 'Please enter a source folder ID.', 'error'); return; }
+  if (!dest) { setStatus('status-auth', 'Please enter a destination folder ID.', 'error'); return; }
+
+  if (typeof google === 'undefined') {
+    setStatus('status-auth', 'Google Sign-In script not loaded yet — try again in a moment.', 'error');
+    return;
+  }
+
+  try {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/drive',
+      callback: (resp) => {
+        if (resp.error) { setStatus('status-auth', 'Sign-in failed: ' + resp.error, 'error'); return; }
+        accessToken = resp.access_token;
+        setStatus('status-auth', 'Connected.', 'success');
+        markDone('badge-1');
+        enable('card-files');
+        loadFiles();
+      }
+    });
+    client.requestAccessToken({ prompt: 'select_account' });
+  } catch (e) {
+    setStatus('status-auth', 'Error: ' + e.message, 'error');
+  }
+}
+
+async function loadFiles() {
+  if (!accessToken) return;
+  setStatus('status-files', 'Loading…');
+  const folderId = $('source-folder').value.trim();
+  const q = encodeURIComponent(`'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`);
+  const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime+desc&pageSize=20`;
+  try {
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const data = await res.json();
+    if (data.error) { setStatus('status-files', data.error.message, 'error'); return; }
+    const files = data.files || [];
+    if (!files.length) { setStatus('status-files', 'No Google Docs found in this folder.'); return; }
+    setStatus('status-files', `${files.length} document${files.length !== 1 ? 's' : ''} found.`, 'success');
+    const list = $('file-list');
+    list.innerHTML = '';
+    files.forEach(f => {
+      const row = document.createElement('div');
+      row.className = 'file-row';
+      const date = new Date(f.modifiedTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const safeName = f.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      row.innerHTML = `
+        <div class="file-icon">doc</div>
+        <div class="file-info">
+          <div class="file-name">${f.name}</div>
+          <div class="file-date">${date}</div>
+        </div>
+        <button class="btn btn-sm" onclick="selectFile('${f.id}','${safeName}')">Select →</button>
+      `;
+      list.appendChild(row);
+    });
+  } catch (e) {
+    setStatus('status-files', 'Network error: ' + e.message, 'error');
+  }
+}
+
+function selectFile(id, name) {
+  selectedFile = { id, name };
+  $('selected-doc-name').textContent = name;
+  $('summary-output').textContent = 'Summary will appear here.';
+  $('btn-save').style.display = 'none';
+  summaryText = '';
+  setStatus('status-summary', '');
+  markDone('badge-2');
+  enable('card-summary');
+  $('card-summary').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function goBack() {
+  $('card-summary').classList.add('disabled');
+  $('card-summary').classList.remove('active');
+}
+
+async function summarizeDoc() {
+  if (!selectedFile || !accessToken) return;
+  $('btn-summarize').disabled = true;
+  $('summary-output').textContent = '…';
+  $('summary-output').classList.add('loading');
+  setStatus('status-summary', 'Reading document…');
+
+  try {
+    const exportUrl = `https://www.googleapis.com/drive/v3/files/${selectedFile.id}/export?mimeType=text%2Fplain`;
+    const res = await fetch(exportUrl, { headers: { Authorization: 'Bearer ' + accessToken } });
+    if (!res.ok) throw new Error('Could not read document (' + res.status + ')');
+    const text = await res.text();
+    if (!text.trim()) throw new Error('Document appears to be empty.');
+
+    setStatus('status-summary', 'Summarizing with Claude…');
+
+    const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `You are a professional meeting summarizer. Summarize the following meeting notes clearly and concisely. Structure your summary with these sections:\n\n**Key Decisions**\n**Action Items** (include owners if mentioned)\n**Main Topics Discussed**\n\nMeeting notes:\n\n${text.slice(0, 8000)}`
+        }]
+      })
+    });
+
+    const apiData = await apiRes.json();
+    if (apiData.error) throw new Error(apiData.error.message);
+    summaryText = apiData.content?.find(b => b.type === 'text')?.text || 'No summary generated.';
+    $('summary-output').textContent = summaryText;
+    $('btn-save').style.display = 'inline-flex';
+    setStatus('status-summary', 'Summary ready.', 'success');
+  } catch (e) {
+    setStatus('status-summary', 'Error: ' + e.message, 'error');
+    $('summary-output').textContent = 'Failed to generate summary.';
+  }
+
+  $('summary-output').classList.remove('loading');
+  $('btn-summarize').disabled = false;
+}
+
+async function saveToDrive() {
+  if (!summaryText || !accessToken) return;
+  $('btn-save').disabled = true;
+  setStatus('status-summary', 'Saving to Drive…');
+  const destFolder = $('dest-folder').value.trim();
+  const fileName = `Summary — ${selectedFile.name} (${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})`;
+
+  try {
+    const boundary = 'boundary_' + Date.now();
+    const metadata = JSON.stringify({
+      name: fileName,
+      mimeType: 'application/vnd.google-apps.document',
+      parents: [destFolder]
+    });
+    const body = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: text/plain\r\n\r\n${summaryText}\r\n--${boundary}--`;
+
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        'Content-Type': `multipart/related; boundary=${boundary}`
+      },
+      body
+    });
+
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    markDone('badge-3');
+    setStatus('status-summary', `Saved "${fileName}" to your destination folder.`, 'success');
+  } catch (e) {
+    setStatus('status-summary', 'Save failed: ' + e.message, 'error');
+  }
+
+  $('btn-save').disabled = false;
+}
+</script>
+</body>
+</html>
